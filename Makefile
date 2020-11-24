@@ -1,14 +1,26 @@
 CFLAGS=-O2
 LDFLAGS=-shared
 
-all : remote.so client.exe
-.PHONY : all
+TARGET_LIB=remote.so
+TARGET_APP=deadbeefctl
 
-remote.so : remote.o
-	cc $(LDFLAGS) $(CFLAGS) -o $@ $^
+all: $(TARGET_LIB) $(TARGET_APP)
+.PHONY: all strip install clean
 
-client.exe : client.o
-	cc $(CFLAGS) -o $@ $^
+$(TARGET_LIB): remote.o
+	gcc $(LDFLAGS) $(CFLAGS) -o $@ $^
 
-clean :
-	rm remote.so client.exe *.o
+$(TARGET_APP): client.o
+	gcc $(CFLAGS) -o $@ $^
+
+%.o: %.c
+	gcc $(CFLAGS) -fPIC -o $@ -c $<
+
+strip:
+	strip $(TARGET_LIB) $(TARGET_APP)
+
+install:
+	install -m 0644 -D $(TARGET_LIB) $${HOME}/.local/lib/deadbeef/remote.so
+
+clean:
+	rm $(TARGET_LIB) $(TARGET_APP) *.o
