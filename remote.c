@@ -82,7 +82,7 @@ perform_action (char buf) {
     return;
 }
 
-static void
+static int
 remote_listen (void) {
     // start listening for udp packets.
     struct addrinfo hints, *results;
@@ -101,16 +101,21 @@ remote_listen (void) {
 	fprintf (stderr, "getaddrinfo error: %s\n", gai_strerror(status));
     }
     deadbeef->conf_unlock();
-    // Do stuff
-    if ((sfd = socket (results->ai_family, results->ai_socktype, results->ai_protocol)) != 0) {
-	trace ("couldn't create socket'");
-    }
-    if ((bind(sfd, results->ai_addr, results->ai_addrlen)) != 0) {
-	trace ("couldn't bind'");
+
+    if (!status) {
+        // Do stuff
+        if ((sfd = socket (results->ai_family, results->ai_socktype, results->ai_protocol)) != 0) {
+        	trace ("couldn't create socket'");
+        }
+        if ((bind(sfd, results->ai_addr, results->ai_addrlen)) != 0) {
+        	trace ("couldn't bind'");
+        }
+
+        // Done with results
+        freeaddrinfo (results);
     }
 
-    // Done with results
-    freeaddrinfo (results);
+    return status;
 }
 
 static void
@@ -137,6 +142,7 @@ remote_thread (void *ha) {
 	int f = poll (ufds, 1, 1000);
 	if (f == -1) {
 	    printf ("error occurred in poll()");
+	    sleep(1);
 	} else if (f == 0) {
 	    continue;
 	} else {
@@ -164,9 +170,11 @@ plugin_start (void) {
     // Setup UDP listener to do stuff when receiving special datagrams
     remote_stopthread = 0;
     remote_mutex = deadbeef->mutex_create_nonrecursive ();
+    remote_tid = 0;
     //remote_cond = deadbeef->cond_create ();
-    remote_listen ();
-    remote_tid = deadbeef->thread_start (remote_thread, NULL);
+    if (remote_listen() == 0) {
+        remote_tid = deadbeef->thread_start (remote_thread, NULL);
+    }
     //
     return 0;
 }
