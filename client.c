@@ -8,6 +8,26 @@
 
 #define BUF_SIZE 5
 
+void usage() {
+    printf(
+        "Usage:\n"
+        "  ./deadbeefctl IP PORT CMD\n"
+        "  ./deadbeefctl --help\n"
+        "\n"
+        "Options:\n"
+        "  IP\tLocal IP to listen for commands\n"
+        "  PORT\tLocal PORT to listen for commands\n"
+        "  CMD\tOne of the following command IDs:\n"
+        "\t1 - Play\n"
+        "\t2 - Previous\n"
+        "\t3 - Next\n"
+        "\t4 - Stop\n"
+        "\t5 - Pause\n"
+        "\t6 - Play random\n"
+        "\t7 - Toggle stop-after-current\n"
+    );
+}
+
 int
 main(int argc, char *argv[])
 {
@@ -18,14 +38,17 @@ main(int argc, char *argv[])
     ssize_t nread;
     char buf[BUF_SIZE];
 
-    if (argc < 4) {
-	printf ("Usage: ./client ip port command\n");
-	return 1;
+    if (argc == 2 && !strcmp(argv[1], "--help")) {
+        usage();
+        exit(EXIT_SUCCESS);
     }
 
+    if (argc < 4) {
+        usage();
+        exit(EXIT_FAILURE);
+    }
 
-/* Obtain address(es) matching host/port */
-
+    /* Obtain address(es) matching host/port */
     memset(&hints, 0, sizeof(struct addrinfo));
     hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
     hints.ai_socktype = SOCK_DGRAM; /* Datagram socket */
@@ -34,48 +57,47 @@ main(int argc, char *argv[])
 
     s = getaddrinfo(argv[1], argv[2], &hints, &result);
     if (s != 0) {
-	fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(s));
+        exit(EXIT_FAILURE);
     }
 
- /* getaddrinfo() returns a list of address structures.
+    /* getaddrinfo() returns a list of address structures.
     Try each address until we successfully connect(2).
     If socket(2) (or connect(2)) fails, we (close the socket
     and) try the next address. */
-
     for (rp = result; rp != NULL; rp = rp->ai_next) {
-	sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-	if (sfd == -1)
-	    continue;
+        sfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sfd == -1)
+            continue;
 
-	if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
-	    break;                  /* Success */
+        if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1)
+            break;                  /* Success */
 
-	close(sfd);
+        close(sfd);
     }
 
     if (rp == NULL) {               /* No address succeeded */
-	fprintf(stderr, "Could not connect\n");
-	exit(EXIT_FAILURE);
+        fprintf(stderr, "Could not connect\n");
+        exit(EXIT_FAILURE);
     }
 
     freeaddrinfo(result);           /* No longer needed */
 
- /* Send remaining command-line arguments as separate
+    /* Send remaining command-line arguments as separate
     datagrams, and read responses from server */
-
     for (j = 3; j < argc; j++) {
-	len = strlen(argv[j]) + 1;
-     /* +1 for terminating null byte */
-	/* if (len + 1 > BUF_SIZE) { */
-	/*     fprintf(stderr, "Ignoring long message in argument %d\n", j); */
-	/*     continue; */
-	/* } */
+        len = strlen(argv[j]) + 1;
+         /* +1 for terminating null byte */
+        /* if (len + 1 > BUF_SIZE) { */
+        /*     fprintf(stderr, "Ignoring long message in argument %d\n", j); */
+        /*     continue; */
+        /* } */
 
-	if (write(sfd, argv[j], len) != len) {
-	    fprintf(stderr, "partial/failed write\n");
-	    exit(EXIT_FAILURE);
-	}
+        if (write(sfd, argv[j], len) != len) {
+            fprintf(stderr, "partial/failed write\n");
+            exit(EXIT_FAILURE);
+        }
     }
+
     exit(EXIT_SUCCESS);
 }
